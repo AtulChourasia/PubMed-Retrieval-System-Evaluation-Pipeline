@@ -1,0 +1,176 @@
+# Configuration for the Medical Information Retrieval Project
+
+# --- File Paths ---
+paths:
+  pubmed_dataset: "pubmed_dataset.json"
+  pubmed_dataset_expanded: "pubmed_dataset_expanded.json"
+  pubmed_dataset_final: "pubmed_dataset_final.json"
+  medical_dataset: "medical_dataset.json" # Used in evaluate_retrieval
+  evaluation_results: "evaluation_results.json"
+
+# --- NCBI PubMed API Settings (fetch_pubmed.py) ---
+pubmed_api:
+  base_url: "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/"
+  search_timeout: 30
+  fetch_timeout: 30
+  batch_size: 50
+  delay_between_batches: 0.5 # seconds
+  delay_on_error: 5        # seconds
+  delay_between_topics: 1  # seconds
+  max_results_per_topic: 300
+
+# --- Dataset Generation Settings (fetch_pubmed.py) ---
+dataset_generation:
+  max_total_queries: 1000
+  relevance_tfidf_threshold: 0.1
+  relevance_top_n: 30
+  # Consider moving the large topics and templates lists here or to separate files
+  topics: # Shortened for brevity - add your full list here
+    - "cardiovascular diseases treatment"
+    - "respiratory diseases diagnosis"
+    - "neurological disorders symptoms"
+    - "infectious diseases prevention"
+    # --- Added Examples ---
+    - "diabetes mellitus management guidelines"
+    - "hypertension complications prevention"
+    - "asthma pediatric care"
+    - "alzheimer's disease early diagnosis"
+    - "depression pharmacological treatment"
+    - "osteoarthritis non-pharmacological therapy"
+    - "multiple sclerosis prognosis factors"
+    - "parkinson's disease surgical interventions"
+    - "chronic kidney disease progression markers"
+    - "breast cancer screening recommendations"
+    - "colorectal cancer adjuvant chemotherapy"
+    - "lung cancer immunotherapy response"
+    - "stroke rehabilitation outcomes"
+    - "myocardial infarction secondary prevention"
+    - "sepsis management protocols"
+    - "acute respiratory distress syndrome ventilation strategies"
+    - "inflammatory bowel disease biologic therapies"
+    # ... Add all your topics
+  query_templates: # Shortened for brevity - add your full list here
+    - "What is the treatment for {}?"
+    - "What are the latest treatments for {}?"
+    # --- Added Examples ---
+    - "How is {} diagnosed?"
+    - "What are the risk factors for {}?"
+    - "Describe the symptoms of {}?"
+    - "Compare treatment options for {}?"
+    - "What are the long-term effects of {}?"
+    - "How to manage side effects of {} treatment?"
+    - "What are the current research directions for {}?"
+    - "Explain the pathophysiology of {}?"
+    - "What preventive measures exist for {}?"
+    - "Discuss the prognosis of {}?"
+    # ... Add all your templates
+
+# --- Query Generation Settings (generate_queries.py) ---
+query_generation:
+  topic_cleaning:
+    min_meaningful_words: 2
+    max_topic_words: 5
+    stop_words: # Example subset - add your full list or consider using NLTK/SpaCy list
+      - 'the'
+      - 'a'
+      - 'an'
+      - 'and'
+      - 'or'
+      - 'but'
+      - 'in'
+      - 'on'
+      - 'at'
+      - 'to'
+      - 'for'
+      - 'of'
+      - 'with'
+      - 'by'
+  topic_validation:
+    min_words: 2
+    max_words: 5
+    # Move medical_terms dictionary here or to a separate file
+    medical_terms: # Example subset
+      conditions: ['disease', 'syndrome']
+      treatments: ['treatment', 'therapy']
+  topic_extraction:
+    num_sentences_to_check: 3
+  query_generation_from_topics:
+    num_templates_per_topic: 3
+    top_n_topics: 500
+  relevance_update:
+    tfidf_threshold: 0.1
+    top_n_matches: 20
+
+# --- Query Analysis and Improvement (analyze_and_improve_queries.py) ---
+query_improvement:
+  topic_validation: # Similar to generate_queries, consider consolidating
+    min_words: 2
+    # Move invalid_endings list here
+    invalid_endings: ['and', 'or', 'the', 'early'] # Example subset
+    # Move medical_terms dictionary here (or consolidate with generate_queries)
+    medical_terms: # Example subset
+      conditions: ['disease', 'syndrome']
+      treatments: ['therapy', 'treatment']
+  concept_extraction:
+    # Move regex patterns here or to a separate file
+    patterns: # Example subset
+      - '\\b\\w+(?:itis|osis|emia|oma|pathy)\\b'
+      - '\\b(?:acute|chronic)\\s+\\w+\\s+disease\\b'
+  query_generation_from_concepts:
+    num_templates_per_concept: 5
+    top_n_concepts: 300
+    # Move improved_templates list here or to a separate file
+    improved_templates: # Example subset
+      - "What is the current standard of care for {}?"
+      - "What are the evidence-based guidelines for managing {}?"
+
+# --- Retrieval Models (retrieval_models.py / evaluate_retrieval.py) ---
+retrieval:
+  default_dense_model: "sentence-transformers/all-MiniLM-L6-v2"
+  medical_dense_model: "microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext"
+  clinical_dense_model: "emilyalsentzer/Bio_ClinicalBERT"
+  biobert_dense_model: "dmis-lab/biobert-base-cased-v1.2"
+  pubmedbert_dense_model: "microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract"
+  hybrid_alpha_values: [0.1, 0.3, 0.5, 0.7, 0.9] # Used in evaluate_retrieval
+
+# --- LLM Settings (Requires User Implementation & API Key) ---
+llm:
+  enabled_relevance: true # Keep LLM Relevance enabled
+  enabled_query_generation: false # Keep query generation disabled for now
+  api_provider: "vertex_ai" # *** CHANGE PROVIDER TO vertex_ai ***
+  # api_key_env_var: "GOOGLE_API_KEY" # No longer needed for Vertex AI ADC
+  vertex_ai_project: "975584467170"  # *** ADD YOUR GCP PROJECT ID HERE ***
+  vertex_ai_location: "us-central1" # *** ADD YOUR VERTEX AI REGION HERE ***
+  relevance:
+    model: "gemini-2.0-flash" # Vertex uses specific model versions
+    prompt_template: |
+      Assess the relevance of the following document abstract to the query.
+      Score on a scale from 0 (irrelevant) to 3 (highly relevant).
+      Output only the integer score and nothing else.
+
+      Query: {query}
+      Document Abstract: {abstract}
+
+      Relevance Score (0-3):
+    max_pairs_per_query: 1 # *** REDUCED from 50 to 10 to manage rate limits ***
+    sampling_strategy: "top_tfidf" # How to select pairs ('top_tfidf', 'random', etc.)
+    llm_call_delay_seconds: 0.2 # *** REDUCED delay significantly ***
+  query_generation:
+    # Keeping query gen settings, but it's disabled above
+    model: "gemini-1.5-flash-001" # Vertex uses specific model versions
+    prompt_template: |
+      Generate 3 diverse, relevant clinical questions based on the following abstract.
+      Output each question on a new line.
+      Abstract: {abstract}
+      Questions:
+    max_queries_per_doc: 3
+
+# --- Advanced Retrieval Settings ---
+advanced_retrieval:
+  reranker_enabled: false # Set to true to enable the placeholder re-ranker
+  reranker_model: "cross-encoder/ms-marco-MiniLM-L-6-v2" # Example cross-encoder
+  rerank_top_k: 50 # Re-rank the top K results from the first stage
+
+# --- Evaluation Settings (evaluate_retrieval.py) ---
+evaluation:
+  k_values: [1, 3, 5, 10, 20] 
